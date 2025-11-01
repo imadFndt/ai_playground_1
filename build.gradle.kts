@@ -10,6 +10,11 @@ application {
     mainClass = "io.ktor.server.netty.EngineMain"
 }
 
+repositories {
+    mavenCentral()
+    maven { url = uri("https://jitpack.io") }
+}
+
 dependencies {
     implementation(libs.ktor.server.core)
     implementation(libs.ktor.server.netty)
@@ -17,6 +22,15 @@ dependencies {
     implementation(libs.ktor.server.core)
     implementation(libs.ktor.server.config.yaml)
     implementation(libs.anthropic.sdk)
+    implementation(libs.telegram.bot)
     testImplementation(libs.ktor.server.test.host)
     testImplementation(libs.kotlin.test.junit)
+}
+
+// Task to run the Telegram bot
+tasks.register<JavaExec>("runTelegramBot") {
+    group = "application"
+    description = "Run the Telegram bot application"
+    classpath = sourceSets["main"].runtimeClasspath
+    mainClass.set("com.com.TelegramBotApplicationKt")
 }

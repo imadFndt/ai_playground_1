@@ -1,39 +1,97 @@
-# com
+# AI Agent приложение
 
-This project was created using the [Ktor Project Generator](https://start.ktor.io).
+Этот проект предоставляет два приложения на базе Claude AI:
+1. **Ktor Web Server** - HTTP API для взаимодействия с AI
+2. **Telegram Bot** - Интерактивный бот для мессенджера Telegram
 
-Here are some useful links to get you started:
+## Требования
 
-- [Ktor Documentation](https://ktor.io/docs/home.html)
-- [Ktor GitHub page](https://github.com/ktorio/ktor)
-- The [Ktor Slack chat](https://app.slack.com/client/T09229ZC6/C0A974TJ9). You'll need to [request an invite](https://surveys.jetbrains.com/s3/kotlin-slack-sign-up) to join.
+- Java 17 или выше
+- Gradle (включен через wrapper)
+- Переменные окружения:
+  - `ANTHROPIC_API_KEY` - Ваш API ключ Anthropic (требуется для обоих приложений)
+  - `TELEGRAM_BOT_TOKEN` - Токен вашего Telegram бота (требуется только для Telegram бота)
 
-## Features
+## Приложения
 
-Here's a list of features included in this project:
+### 1. Ktor Web Server
 
-| Name                                               | Description                                                 |
-| ----------------------------------------------------|------------------------------------------------------------- |
-| [Routing](https://start.ktor.io/p/routing-default) | Allows to define structured routes and associated handlers. |
+HTTP сервер с REST API для взаимодействия с AI.
 
-## Building & Running
+**Эндпоинты:**
+- `GET /` - Эндпоинт проверки работоспособности
+- `GET /ask?question=<ваш-вопрос>` - Задать вопрос Claude AI
 
-To build or run the project, use one of the following tasks:
+**Возможности:**
+- Валидация длины сообщения (максимум 1000 символов)
+- Обработка ошибок
+- Интеграция с Claude Sonnet 4.5
 
-| Task                                    | Description                                                          |
+**Запуск сервера:**
+```bash
+./gradlew run
+```
+
+Сервер запустится по адресу `http://localhost:8080`
+
+**Пример запроса:**
+```bash
+curl "http://localhost:8080/ask?question=what%20is%20kotlin"
+```
+
+### 2. Telegram Bot
+
+Интерактивный Telegram бот, который отвечает на сообщения используя Claude AI.
+
+**Команды:**
+- `/start` - Запустить бота и получить приветственное сообщение
+- `/help` - Показать справочную информацию
+
+**Возможности:**
+- Валидация длины сообщения (максимум 1000 символов)
+- Индикаторы печати
+- Обработка ошибок
+- Интеграция с Claude Sonnet 4.5
+
+**Запуск Telegram бота:**
+```bash
+# Отредактируйте файл local_run и добавьте ваши API ключи, затем запустите:
+./local_run
+```
+
+**Создание Telegram бота:**
+1. Напишите [@BotFather](https://t.me/botfather) в Telegram
+2. Отправьте команду `/newbot` и следуйте инструкциям
+3. Скопируйте токен бота, предоставленный BotFather
+4. Установите его в переменную окружения `TELEGRAM_BOT_TOKEN`
+
+## Сборка и запуск
+
+| Команда                                 | Описание                                                             |
 | -----------------------------------------|---------------------------------------------------------------------- |
-| `./gradlew test`                        | Run the tests                                                        |
-| `./gradlew build`                       | Build everything                                                     |
-| `./gradlew buildFatJar`                 | Build an executable JAR of the server with all dependencies included |
-| `./gradlew buildImage`                  | Build the docker image to use with the fat JAR                       |
-| `./gradlew publishImageToLocalRegistry` | Publish the docker image locally                                     |
-| `./gradlew run`                         | Run the server                                                       |
-| `./gradlew runDocker`                   | Run using the local docker image                                     |
+| `./gradlew test`                        | Запустить тесты                                                      |
+| `./gradlew build`                       | Собрать всё                                                          |
+| `./gradlew run`                         | Запустить Ktor web сервер                                            |
+| `./gradlew runTelegramBot`              | Запустить Telegram бота                                              |
+| `./gradlew buildFatJar`                 | Собрать исполняемый JAR со всеми зависимостями                       |
 
-If the server starts successfully, you'll see the following output:
+## Структура проекта
 
 ```
-2024-12-04 14:32:45.584 [main] INFO  Application - Application started in 0.303 seconds.
-2024-12-04 14:32:45.682 [main] INFO  Application - Responding at http://0.0.0.0:8080
+src/main/kotlin/
+├── Application.kt              # Точка входа Ktor сервера
+├── TelegramBotApplication.kt   # Точка входа Telegram бота
+├── Routing.kt                  # Конфигурация HTTP маршрутов
+└── com/com/
+    ├── ai/
+    │   ├── AiClient.kt        # Интерфейс AI клиента
+    │   └── ClaudeClient.kt    # Реализация Anthropic Claude
+    └── di/
+        └── AppModule.kt       # Модуль внедрения зависимостей
 ```
 
+## Ссылки
+
+- [Документация Ktor](https://ktor.io/docs/home.html)
+- [Kotlin Telegram Bot](https://github.com/kotlin-telegram-bot/kotlin-telegram-bot)
+- [Документация Anthropic API](https://docs.anthropic.com/)
