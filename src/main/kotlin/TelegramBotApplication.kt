@@ -1,6 +1,7 @@
 package com.com
 
 import com.com.ai.AiMessage
+import com.com.ai.ClaudeResponse
 import com.com.di.AppModule
 import com.github.kotlintelegrambot.bot
 import com.github.kotlintelegrambot.dispatch
@@ -9,6 +10,7 @@ import com.github.kotlintelegrambot.dispatcher.message
 import com.github.kotlintelegrambot.dispatcher.text
 import com.github.kotlintelegrambot.entities.ChatId
 import kotlinx.coroutines.runBlocking
+import kotlinx.serialization.json.Json
 
 const val MAX_TELEGRAM_MESSAGE_LENGTH = 1000
 
@@ -68,14 +70,35 @@ fun main() {
 
                     // Get AI response
                     val aiClient = AppModule.provideAiClient()
-                    val response = runBlocking {
+                    val jsonResponse = runBlocking {
                         aiClient.sendMessage(AiMessage("user", text))
                     }
+
+                    // Parse JSON response
+                    val claudeResponse = try {
+                        val json = Json { ignoreUnknownKeys = true }
+                        json.decodeFromString<ClaudeResponse>(jsonResponse)
+                    } catch (e: Exception) {
+                        bot.sendMessage(
+                            chatId = ChatId.fromId(message.chat.id),
+                            text = "Sorry, couldn't parse the response. Raw response: $jsonResponse"
+                        )
+                        return@message
+                    }
+
+                    // Format response for Telegram
+                    val formattedResponse = """
+                        📌 ${claudeResponse.title}
+
+                        ${claudeResponse.answer}
+
+                        💭 ${claudeResponse.randomBadThoughtAboutWriter}
+                    """.trimIndent()
 
                     // Send response
                     bot.sendMessage(
                         chatId = ChatId.fromId(message.chat.id),
-                        text = response
+                        text = formattedResponse
                     )
                 } catch (e: Exception) {
                     bot.sendMessage(

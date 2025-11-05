@@ -1,6 +1,7 @@
 plugins {
     alias(libs.plugins.kotlin.jvm)
     alias(libs.plugins.ktor)
+    alias(libs.plugins.kotlin.serialization)
 }
 
 group = "com.com"
@@ -23,6 +24,7 @@ dependencies {
     implementation(libs.ktor.server.config.yaml)
     implementation(libs.anthropic.sdk)
     implementation(libs.telegram.bot)
+    implementation(libs.kotlinx.serialization.json)
     testImplementation(libs.ktor.server.test.host)
     testImplementation(libs.kotlin.test.junit)
 }
