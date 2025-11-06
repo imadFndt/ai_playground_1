@@ -46,11 +46,16 @@ Interactive Telegram bot that responds to messages using Claude AI.
 **Commands:**
 - `/start` - Start the bot and get a welcome message
 - `/help` - Display help information
+- `/findTrack` - Find music tracks with AI-guided conversation (asks for year, genre, and region)
 
 **Features:**
+- Structured JSON responses with title and creative commentary
 - Message length validation (max 1000 characters)
 - Typing indicators
-- Error handling
+- Markdown formatting support (bold, italic)
+- Multi-step conversational workflows with state management
+- AI-powered validation of user inputs with configurable temperature
+- Error handling with graceful fallbacks
 - Integration with Claude Sonnet 4.5
 
 **Running the Telegram bot:**
@@ -84,8 +89,14 @@ src/main/kotlin/
 ├── Routing.kt                  # HTTP routes configuration
 └── com/com/
     ├── ai/
-    │   ├── AiClient.kt        # AI client interface
-    │   └── ClaudeClient.kt    # Anthropic Claude implementation
+    │   ├── AiClient.kt        # AI client interface (JSON & plain text)
+    │   ├── AiMessage.kt       # Message model with temperature control
+    │   ├── ClaudeClient.kt    # Anthropic Claude implementation
+    │   └── ClaudeResponse.kt  # Structured response data class
+    ├── bot/
+    │   ├── ConversationState.kt      # Conversation state management
+    │   ├── ConversationManager.kt    # Multi-step conversation handler
+    │   └── FindTrackInteractor.kt    # Music track finder with AI validation
     └── di/
         └── AppModule.kt       # Dependency injection module
 ```

@@ -2,6 +2,8 @@ package com.com
 
 import com.com.ai.AiMessage
 import com.com.ai.ClaudeResponse
+import com.com.bot.ConversationManager
+import com.com.bot.FindTrackInteractor
 import com.com.di.AppModule
 import com.github.kotlintelegrambot.bot
 import com.github.kotlintelegrambot.dispatch
@@ -9,6 +11,7 @@ import com.github.kotlintelegrambot.dispatcher.command
 import com.github.kotlintelegrambot.dispatcher.message
 import com.github.kotlintelegrambot.dispatcher.text
 import com.github.kotlintelegrambot.entities.ChatId
+import com.github.kotlintelegrambot.entities.ParseMode
 import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.Json
 
@@ -36,6 +39,7 @@ fun main() {
                         Available commands:
                         /start - Start the bot
                         /help - Show this help message
+                        /findTrack - Find music tracks based on year, genre, and region
 
                         Just send me any text message and I'll respond using Claude AI!
 
@@ -44,18 +48,71 @@ fun main() {
                 )
             }
 
+            command("findTrack") {
+                val chatId = message.chat.id
+                ConversationManager.startFindTrack(chatId)
+
+                bot.sendChatAction(
+                    chatId = ChatId.fromId(chatId),
+                    action = com.github.kotlintelegrambot.entities.ChatAction.TYPING
+                )
+
+                try {
+                    val aiClient = AppModule.provideAiClient()
+                    val initialPrompt = """
+                        You are starting a conversation to help someone find music tracks.
+                        You need to gather exactly 3 pieces of information: year/era, genre, and region.
+                        Ask an engaging opening question about ONE of these three topics.
+                        Keep it natural and conversational.
+                        Format your response as: QUESTION: [your question]
+                    """.trimIndent()
+
+                    val initialQuestion = runBlocking {
+                        aiClient.sendMessagePlainText(AiMessage("system", initialPrompt, temperature = 0.7))
+                    }
+
+                    val question = if (initialQuestion.startsWith("QUESTION:", ignoreCase = true)) {
+                        initialQuestion.substringAfter(":", "").trim()
+                    } else {
+                        initialQuestion
+                    }
+
+                    val state = ConversationManager.getState(chatId)
+                    state?.conversationHistory?.add("Assistant: $question")
+                    state?.let { ConversationManager.updateState(chatId, it) }
+
+                    bot.sendMessage(
+                        chatId = ChatId.fromId(chatId),
+                        text = "🎵 Let's find some music tracks!\n\n$question"
+                    )
+                } catch (e: Exception) {
+                    bot.sendMessage(
+                        chatId = ChatId.fromId(chatId),
+                        text = "🎵 Let's find some music tracks! What kind of music are you in the mood for?"
+                    )
+                }
+            }
+
             message {
                 val text = message.text ?: return@message
+                val chatId = message.chat.id
 
                 // Ignore commands
                 if (text.startsWith("/")) {
                     return@message
                 }
 
+                // Check if user is in a findTrack conversation
+                if (ConversationManager.isInConversation(chatId)) {
+                    val findTrackInteractor = AppModule.provideFindTrackInteractor()
+                    findTrackInteractor.handleConversation(bot, chatId, text)
+                    return@message
+                }
+
                 // Check message length
                 if (text.length > MAX_TELEGRAM_MESSAGE_LENGTH) {
                     bot.sendMessage(
-                        chatId = ChatId.fromId(message.chat.id),
+                        chatId = ChatId.fromId(chatId),
                         text = "Your message exceeds the maximum length of $MAX_TELEGRAM_MESSAGE_LENGTH characters. Please send a shorter message."
                     )
                     return@message
@@ -71,7 +128,7 @@ fun main() {
                     // Get AI response
                     val aiClient = AppModule.provideAiClient()
                     val jsonResponse = runBlocking {
-                        aiClient.sendMessage(AiMessage("user", text))
+                        aiClient.sendMessageJsonResponse(AiMessage("user", text))
                     }
 
                     // Parse JSON response
@@ -88,17 +145,18 @@ fun main() {
 
                     // Format response for Telegram
                     val formattedResponse = """
-                        📌 ${claudeResponse.title}
+                        📌 *${claudeResponse.title}*
 
                         ${claudeResponse.answer}
 
-                        💭 ${claudeResponse.randomBadThoughtAboutWriter}
+                        💭 _${claudeResponse.randomBadThoughtAboutWriter}_
                     """.trimIndent()
 
                     // Send response
                     bot.sendMessage(
                         chatId = ChatId.fromId(message.chat.id),
-                        text = formattedResponse
+                        text = formattedResponse,
+                        parseMode = ParseMode.MARKDOWN
                     )
                 } catch (e: Exception) {
                     bot.sendMessage(

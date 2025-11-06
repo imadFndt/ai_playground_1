@@ -28,7 +28,7 @@ fun Application.configureRouting() {
 
             try {
                 val aiClient = AppModule.provideAiClient()
-                val response = aiClient.sendMessage(AiMessage("user", question))
+                val response = aiClient.sendMessageJsonResponse(AiMessage("user", question))
                 call.respondText(response)
             } catch (e: IllegalStateException) {
                 call.respondText(

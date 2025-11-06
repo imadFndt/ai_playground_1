@@ -13,7 +13,7 @@ class ClaudeClient(
         AnthropicOkHttpClient.fromEnv()
     }
 
-    override suspend fun sendMessage(aiMessage: AiMessage): String {
+    override suspend fun sendMessageJsonResponse(aiMessage: AiMessage): String {
 
         val systemPrompt = """
              You are a specialized assistant that MUST respond in valid JSON format only.
@@ -42,21 +42,42 @@ class ClaudeClient(
           """.trimIndent()
 
         val params = MessageCreateParams.builder()
-                .model(model)
-                .maxTokens(1000)
-                .system(systemPrompt)
-                .addUserMessage("Example")
-                .addAssistantMessage("""{"title":"Example Title","randomBadThoughtAboutWriter":"They probably procrastinate","answer":"This is an example answer"}""")
-                .addUserMessage("проверяю")
-                .addAssistantMessage(
-                    """{
+            .model(model)
+            .maxTokens(1000)
+            .system(systemPrompt)
+            .addUserMessage("Example")
+            .addAssistantMessage("""{"title":"Example Title","randomBadThoughtAboutWriter":"They probably procrastinate","answer":"This is an example answer"}""")
+            .addUserMessage("проверяю")
+            .addAssistantMessage(
+                """{
   "title": "Проверка связи",
   "randomBadThoughtAboutWriter": "Похоже, кто-то не может придумать ничего более оригинального, чем просто 'проверяю' — креативность на нуле",
   "answer": "Привет! Связь установлена, я тебя прекрасно слышу. Система работает нормально, все твои сообщения доходят. Можешь задавать любые вопросы или начинать обсуждение — я готов помочь с чем угодно: от сложных технических тем до философских размышлений. Чем займёмся?"
 }"""
-                )
-                .addUserMessage(aiMessage.content)
-                .build();
+            )
+            .addUserMessage(aiMessage.content)
+            .build();
+
+        val response = client.messages().create(params)
+
+        val textContent = response.content()
+            .mapNotNull { it.text().orElse(null) }
+            .joinToString("") { it.text() }
+
+        if (textContent.isEmpty()) {
+            throw IllegalStateException("No text content in response")
+        }
+
+        return textContent
+    }
+
+    override suspend fun sendMessagePlainText(aiMessage: AiMessage): String {
+        val params = MessageCreateParams.builder()
+            .model(model)
+            .maxTokens(100)
+            .temperature(aiMessage.temperature)
+            .addUserMessage(aiMessage.content)
+            .build()
 
         val response = client.messages().create(params)
 
