@@ -40,6 +40,7 @@ fun main() {
                         /start - Start the bot
                         /help - Show this help message
                         /findTrack - Find music tracks based on year, genre, and region
+                        /experts - Analyze a question using multiple AI approaches and compare results
 
                         Just send me any text message and I'll respond using Claude AI!
 
@@ -90,6 +91,30 @@ fun main() {
                         chatId = ChatId.fromId(chatId),
                         text = "🎵 Let's find some music tracks! What kind of music are you in the mood for?"
                     )
+                }
+            }
+
+            command("experts") {
+                val chatId = message.chat.id
+                val questionText = message.text?.removePrefix("/experts")?.trim()
+
+                if (questionText.isNullOrEmpty()) {
+                    bot.sendMessage(
+                        chatId = ChatId.fromId(chatId),
+                        text = "Please provide a question after the /experts command.\n\nExample: /experts What is quantum computing?"
+                    )
+                    return@command
+                }
+
+                try {
+                    val expertsInteractor = AppModule.provideExpertsInteractor()
+                    expertsInteractor.processQuestion(bot, chatId, questionText)
+                } catch (e: Exception) {
+                    bot.sendMessage(
+                        chatId = ChatId.fromId(chatId),
+                        text = "❌ Sorry, an error occurred: ${e.message}"
+                    )
+                    e.printStackTrace()
                 }
             }
 

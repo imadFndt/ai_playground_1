@@ -74,7 +74,7 @@ class ClaudeClient(
     override suspend fun sendMessagePlainText(aiMessage: AiMessage): String {
         val params = MessageCreateParams.builder()
             .model(model)
-            .maxTokens(100)
+            .maxTokens(1000)
             .temperature(aiMessage.temperature)
             .addUserMessage(aiMessage.content)
             .build()

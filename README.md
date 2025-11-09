@@ -1,6 +1,6 @@
 # AI Agent приложение
 
-Этот проект предоставляет два приложения на базе Claude AI:
+Этот проект предоставляет два приложения на базе AI (Claude AI или YandexGPT):
 1. **Ktor Web Server** - HTTP API для взаимодействия с AI
 2. **Telegram Bot** - Интерактивный бот для мессенджера Telegram
 
@@ -9,8 +9,10 @@
 - Java 17 или выше
 - Gradle (включен через wrapper)
 - Переменные окружения:
-  - `ANTHROPIC_API_KEY` - Ваш API ключ Anthropic (требуется для обоих приложений)
+  - `ANTHROPIC_API_KEY` - Ваш API ключ Anthropic (требуется для Claude AI)
   - `TELEGRAM_BOT_TOKEN` - Токен вашего Telegram бота (требуется только для Telegram бота)
+  - `YANDEX_API_KEY` - Ваш API ключ Yandex Cloud (требуется для YandexGPT)
+  - `YANDEX_FOLDER_ID` - ID вашей папки в Yandex Cloud (требуется для YandexGPT)
 
 ## Приложения
 
@@ -25,7 +27,9 @@ HTTP сервер с REST API для взаимодействия с AI.
 **Возможности:**
 - Валидация длины сообщения (максимум 1000 символов)
 - Обработка ошибок
-- Интеграция с Claude Sonnet 4.5
+- Поддержка нескольких AI провайдеров:
+  - Claude Sonnet 4.5 (Anthropic)
+  - YandexGPT (Yandex Cloud)
 
 **Запуск сервера:**
 ```bash
@@ -47,6 +51,7 @@ curl "http://localhost:8080/ask?question=what%20is%20kotlin"
 - `/start` - Запустить бота и получить приветственное сообщение
 - `/help` - Показать справочную информацию
 - `/findTrack` - Найти музыкальные треки с помощью AI (запрашивает год, жанр и регион)
+- `/experts` - Проанализировать вопрос используя несколько AI подходов и сравнить результаты
 
 **Возможности:**
 - Структурированные JSON-ответы с заголовком и креативными комментариями
@@ -56,7 +61,9 @@ curl "http://localhost:8080/ask?question=what%20is%20kotlin"
 - Многошаговые диалоги с управлением состоянием
 - AI-валидация пользовательского ввода с настраиваемой температурой
 - Обработка ошибок с корректным откатом
-- Интеграция с Claude Sonnet 4.5
+- Поддержка нескольких AI провайдеров:
+  - Claude Sonnet 4.5 (Anthropic)
+  - YandexGPT (Yandex Cloud)
 
 **Запуск Telegram бота:**
 ```bash
@@ -80,6 +87,28 @@ curl "http://localhost:8080/ask?question=what%20is%20kotlin"
 | `./gradlew runTelegramBot`              | Запустить Telegram бота                                              |
 | `./gradlew buildFatJar`                 | Собрать исполняемый JAR со всеми зависимостями                       |
 
+## Конфигурация AI провайдера
+
+Приложение использует Claude AI как основного провайдера и поддерживает YandexGPT для сравнения.
+
+### Claude AI (основной провайдер)
+```bash
+export ANTHROPIC_API_KEY="your-anthropic-api-key"
+```
+
+### YandexGPT (для команды /experts)
+```bash
+export YANDEX_API_KEY="your-yandex-api-key"
+export YANDEX_FOLDER_ID="your-yandex-folder-id"
+```
+
+Вы можете использовать оба провайдера в коде:
+```kotlin
+val claudeClient = AppModule.provideClaudeClient()
+val yandexClient = AppModule.provideYandexGptClient()
+val defaultClient = AppModule.provideAiClient() // Возвращает Claude
+```
+
 ## Структура проекта
 
 ```
@@ -92,11 +121,13 @@ src/main/kotlin/
     │   ├── AiClient.kt        # Интерфейс AI клиента (JSON и обычный текст)
     │   ├── AiMessage.kt       # Модель сообщения с контролем температуры
     │   ├── ClaudeClient.kt    # Реализация Anthropic Claude
+    │   ├── YandexGptClient.kt # Реализация YandexGPT
     │   └── ClaudeResponse.kt  # Класс структурированного ответа
     ├── bot/
     │   ├── ConversationState.kt      # Управление состоянием диалога
     │   ├── ConversationManager.kt    # Обработчик многошаговых диалогов
-    │   └── FindTrackInteractor.kt    # Поиск треков с AI-валидацией
+    │   ├── FindTrackInteractor.kt    # Поиск треков с AI-валидацией
+    │   └── ExpertsInteractor.kt      # Мультиподходный анализ вопросов
     └── di/
         └── AppModule.kt       # Модуль внедрения зависимостей
 ```
