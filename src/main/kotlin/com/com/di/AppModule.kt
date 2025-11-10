@@ -5,6 +5,7 @@ import com.com.ai.ClaudeClient
 import com.com.ai.YandexGptClient
 import com.com.bot.ExpertsInteractor
 import com.com.bot.FindTrackInteractor
+import com.com.bot.TemperatureInteractor
 
 object AppModule {
 
@@ -35,6 +36,10 @@ object AppModule {
         ExpertsInteractor(claudeClient, yandexGptClient)
     }
 
+    private val temperatureInteractor: TemperatureInteractor by lazy {
+        TemperatureInteractor(claudeClient)
+    }
+
     fun provideAiClient(): AiClient = aiClient
 
     fun provideClaudeClient(): AiClient = claudeClient
@@ -44,4 +49,6 @@ object AppModule {
     fun provideFindTrackInteractor(): FindTrackInteractor = findTrackInteractor
 
     fun provideExpertsInteractor(): ExpertsInteractor = expertsInteractor
+
+    fun provideTemperatureInteractor(): TemperatureInteractor = temperatureInteractor
 }

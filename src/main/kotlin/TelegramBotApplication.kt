@@ -41,6 +41,7 @@ fun main() {
                         /help - Show this help message
                         /findTrack - Find music tracks based on year, genre, and region
                         /experts - Analyze a question using multiple AI approaches and compare results
+                        /temperature - Compare answers across different temperature settings (0, 0.4, 0.9)
 
                         Just send me any text message and I'll respond using Claude AI!
 
@@ -109,6 +110,30 @@ fun main() {
                 try {
                     val expertsInteractor = AppModule.provideExpertsInteractor()
                     expertsInteractor.processQuestion(bot, chatId, questionText)
+                } catch (e: Exception) {
+                    bot.sendMessage(
+                        chatId = ChatId.fromId(chatId),
+                        text = "❌ Sorry, an error occurred: ${e.message}"
+                    )
+                    e.printStackTrace()
+                }
+            }
+
+            command("temperature") {
+                val chatId = message.chat.id
+                val questionText = message.text?.removePrefix("/temperature")?.trim()
+
+                if (questionText.isNullOrEmpty()) {
+                    bot.sendMessage(
+                        chatId = ChatId.fromId(chatId),
+                        text = "Please provide a question after the /temperature command.\n\nExample: /temperature What is machine learning?"
+                    )
+                    return@command
+                }
+
+                try {
+                    val temperatureInteractor = AppModule.provideTemperatureInteractor()
+                    temperatureInteractor.processQuestion(bot, chatId, questionText)
                 } catch (e: Exception) {
                     bot.sendMessage(
                         chatId = ChatId.fromId(chatId),
