@@ -3,9 +3,11 @@ package com.com.di
 import com.com.ai.AiClient
 import com.com.ai.ClaudeClient
 import com.com.ai.YandexGptClient
+import com.com.ai.HuggingFaceClient
 import com.com.bot.ExpertsInteractor
 import com.com.bot.FindTrackInteractor
 import com.com.bot.TemperatureInteractor
+import com.com.bot.DifferentModelsInteractor
 
 object AppModule {
 
@@ -21,6 +23,15 @@ object AppModule {
             null
         } else {
             YandexGptClient()
+        }
+    }
+
+    private fun createHuggingFaceClient(modelName: String): AiClient? {
+        val apiKey = System.getenv("HUGGING_FACE_API_KEY")
+        return if (apiKey.isNullOrEmpty()) {
+            null
+        } else {
+            HuggingFaceClient(apiKey, modelName)
         }
     }
 
@@ -40,6 +51,18 @@ object AppModule {
         TemperatureInteractor(claudeClient)
     }
 
+    private val differentModelsInteractor: DifferentModelsInteractor? by lazy {
+        val modelA = createHuggingFaceClient("moonshotai/Kimi-K2-Thinking")
+        val modelB = createHuggingFaceClient("meta-llama/Meta-Llama-3-8B-Instruct")
+        val modelC = createHuggingFaceClient("Qwen/Qwen2.5-7B-Instruct")
+
+        if (modelA != null && modelB != null && modelC != null) {
+            DifferentModelsInteractor(modelA, modelB, modelC)
+        } else {
+            null
+        }
+    }
+
     fun provideAiClient(): AiClient = aiClient
 
     fun provideClaudeClient(): AiClient = claudeClient
@@ -51,4 +74,6 @@ object AppModule {
     fun provideExpertsInteractor(): ExpertsInteractor = expertsInteractor
 
     fun provideTemperatureInteractor(): TemperatureInteractor = temperatureInteractor
+
+    fun provideDifferentModelsInteractor(): DifferentModelsInteractor? = differentModelsInteractor
 }

@@ -42,6 +42,7 @@ fun main() {
                         /findTrack - Find music tracks based on year, genre, and region
                         /experts - Analyze a question using multiple AI approaches and compare results
                         /temperature - Compare answers across different temperature settings (0, 0.4, 0.9)
+                        /differentModels - Process a question using 3 different HuggingFace models
 
                         Just send me any text message and I'll respond using Claude AI!
 
@@ -134,6 +135,37 @@ fun main() {
                 try {
                     val temperatureInteractor = AppModule.provideTemperatureInteractor()
                     temperatureInteractor.processQuestion(bot, chatId, questionText)
+                } catch (e: Exception) {
+                    bot.sendMessage(
+                        chatId = ChatId.fromId(chatId),
+                        text = "❌ Sorry, an error occurred: ${e.message}"
+                    )
+                    e.printStackTrace()
+                }
+            }
+
+            command("differentModels") {
+                val chatId = message.chat.id
+                val questionText = message.text?.removePrefix("/differentModels")?.trim()
+
+                if (questionText.isNullOrEmpty()) {
+                    bot.sendMessage(
+                        chatId = ChatId.fromId(chatId),
+                        text = "Please provide a question after the /differentModels command.\n\nExample: /differentModels What is artificial intelligence?"
+                    )
+                    return@command
+                }
+
+                try {
+                    val differentModelsInteractor = AppModule.provideDifferentModelsInteractor()
+                    if (differentModelsInteractor == null) {
+                        bot.sendMessage(
+                            chatId = ChatId.fromId(chatId),
+                            text = "⚠️ HuggingFace models are not configured. Please set the HUGGING_FACE_API_KEY environment variable."
+                        )
+                        return@command
+                    }
+                    differentModelsInteractor.processQuestion(bot, chatId, questionText)
                 } catch (e: Exception) {
                     bot.sendMessage(
                         chatId = ChatId.fromId(chatId),
