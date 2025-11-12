@@ -75,7 +75,7 @@ class DifferentModelsInteractor(
         )
     }
 
-    private fun formatMetrics(durationMs: Long, promptTokens: Int, completionTokens: Int, totalTokens: Int): String {
+    private fun formatMetrics(durationMs: Long, promptTokens: Long, completionTokens: Long, totalTokens: Long): String {
         val durationSeconds = durationMs / 1000.0
         return """
             📊 *Metrics:*

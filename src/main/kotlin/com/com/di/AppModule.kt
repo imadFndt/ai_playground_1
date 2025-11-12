@@ -4,10 +4,13 @@ import com.com.ai.AiClient
 import com.com.ai.ClaudeClient
 import com.com.ai.YandexGptClient
 import com.com.ai.HuggingFaceClient
+import com.com.ai.MetricsCollector
+import com.com.ai.MetricsCollectorAiClient
 import com.com.bot.ExpertsInteractor
 import com.com.bot.FindTrackInteractor
 import com.com.bot.TemperatureInteractor
 import com.com.bot.DifferentModelsInteractor
+import com.com.bot.JsonResponseInteractor
 
 object AppModule {
 
@@ -35,8 +38,16 @@ object AppModule {
         }
     }
 
+    private val metricsCollector: MetricsCollector by lazy {
+        MetricsCollector()
+    }
+
+    private val metricsCollectorAiClient: MetricsCollectorAiClient by lazy {
+        MetricsCollectorAiClient(claudeClient, metricsCollector)
+    }
+
     private val aiClient: AiClient by lazy {
-        claudeClient
+        metricsCollectorAiClient
     }
 
     private val findTrackInteractor: FindTrackInteractor by lazy {
@@ -63,6 +74,10 @@ object AppModule {
         }
     }
 
+    private val jsonResponseInteractor: JsonResponseInteractor by lazy {
+        JsonResponseInteractor(aiClient)
+    }
+
     fun provideAiClient(): AiClient = aiClient
 
     fun provideClaudeClient(): AiClient = claudeClient
@@ -76,4 +91,8 @@ object AppModule {
     fun provideTemperatureInteractor(): TemperatureInteractor = temperatureInteractor
 
     fun provideDifferentModelsInteractor(): DifferentModelsInteractor? = differentModelsInteractor
+
+    fun provideJsonResponseInteractor(): JsonResponseInteractor = jsonResponseInteractor
+
+    fun provideMetricsCollector(): MetricsCollector = metricsCollector
 }

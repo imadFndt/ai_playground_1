@@ -2,6 +2,7 @@ package com.com.bot
 
 import com.com.ai.AiClient
 import com.com.ai.AiMessage
+import com.com.ai.sendMessagePlainText
 import com.github.kotlintelegrambot.Bot
 import com.github.kotlintelegrambot.entities.ChatAction
 import com.github.kotlintelegrambot.entities.ChatId

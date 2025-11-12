@@ -7,7 +7,7 @@ import io.ktor.server.application.*
 import io.ktor.server.response.*
 import io.ktor.server.routing.*
 
-const val MAX_MESSAGE_LENGTH = 1000
+const val MAX_MESSAGE_LENGTH = 5000
 
 fun Application.configureRouting() {
     routing {
@@ -27,8 +27,8 @@ fun Application.configureRouting() {
             }
 
             try {
-                val aiClient = AppModule.provideAiClient()
-                val response = aiClient.sendMessageJsonResponse(AiMessage("user", question))
+                val jsonResponseInteractor = AppModule.provideJsonResponseInteractor()
+                val response = jsonResponseInteractor.getJsonResponse(AiMessage("user", question))
                 call.respondText(response)
             } catch (e: IllegalStateException) {
                 call.respondText(

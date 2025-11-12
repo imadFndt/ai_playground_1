@@ -36,64 +36,14 @@ class HuggingFaceClient(
 
     private val endpoint = "https://router.huggingface.co/v1/chat/completions"
 
-    override suspend fun sendMessageJsonResponse(aiMessage: AiMessage): String {
-        val systemPrompt = """
-            You are a specialized assistant that MUST respond in valid JSON format only.
-            IMPORTANT RULES:
-            1. Your entire response must be valid, parseable JSON
-            2. Start your response with { and end with }
-            3. Do not include markdown code fences (no ```json)
-            4. Do not include any text before or after the JSON object
-            5. Properly escape all special characters in strings (quotes, backslashes, newlines)
-            6. Use double quotes for all keys and string values
-        """.trimIndent()
-
-        val request = HuggingFaceRequest(
-            model = modelName,
-            messages = listOf(
-                HuggingFaceMessage(role = "system", content = systemPrompt),
-                HuggingFaceMessage(role = aiMessage.role, content = aiMessage.content)
-            )
-        )
-
-        val response = client.post(endpoint) {
-            header("Authorization", "Bearer $apiKey")
-            contentType(ContentType.Application.Json)
-            setBody(request)
-        }
-
-        val huggingFaceResponse: HuggingFaceResponse = response.body()
-        return huggingFaceResponse.choices.firstOrNull()?.message?.content
-            ?: throw IllegalStateException("No response from HuggingFace")
-    }
-
-    override suspend fun sendMessagePlainText(aiMessage: AiMessage): String {
-        val request = HuggingFaceRequest(
-            model = modelName,
-            messages = listOf(
-                HuggingFaceMessage(role = aiMessage.role, content = aiMessage.content)
-            )
-        )
-
-        val response = client.post(endpoint) {
-            header("Authorization", "Bearer $apiKey")
-            contentType(ContentType.Application.Json)
-            setBody(request)
-        }
-
-        val huggingFaceResponse: HuggingFaceResponse = response.body()
-        return huggingFaceResponse.choices.firstOrNull()?.message?.content
-            ?: throw IllegalStateException("No response from HuggingFace")
-    }
-
     override suspend fun sendMessageWithMetrics(aiMessage: AiMessage): AiResponseWithMetrics {
         val startTime = System.currentTimeMillis()
 
         val request = HuggingFaceRequest(
             model = modelName,
-            messages = listOf(
-                HuggingFaceMessage(role = aiMessage.role, content = aiMessage.content)
-            )
+            messages = aiMessage.messages.map {
+                HuggingFaceMessage(role = it.role, content = it.content)
+            }
         )
 
         val response = client.post(endpoint) {
@@ -112,9 +62,9 @@ class HuggingFaceClient(
         return AiResponseWithMetrics(
             content = content,
             durationMs = durationMs,
-            promptTokens = huggingFaceResponse.usage?.promptTokens ?: 0,
-            completionTokens = huggingFaceResponse.usage?.completionTokens ?: 0,
-            totalTokens = huggingFaceResponse.usage?.totalTokens ?: 0
+            promptTokens = huggingFaceResponse.usage?.promptTokens?.toLong() ?: 0L,
+            completionTokens = huggingFaceResponse.usage?.completionTokens?.toLong() ?: 0L,
+            totalTokens = huggingFaceResponse.usage?.totalTokens?.toLong() ?: 0L
         )
     }
 

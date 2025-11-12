@@ -31,17 +31,8 @@ class YandexGptClient(
 
     private val endpoint = "https://llm.api.cloud.yandex.net/foundationModels/v1/completion"
 
-    override suspend fun sendMessageJsonResponse(aiMessage: AiMessage): String {
-        val systemPrompt = """
-            You are a specialized assistant that MUST respond in valid JSON format only.
-            IMPORTANT RULES:
-            1. Your entire response must be valid, parseable JSON
-            2. Start your response with U+005B and end with U+005D
-            3. Do not include markdown code fences (no ```json)
-            4. Do not include any text before or after the JSON object
-            5. Properly escape all special characters in strings (quotes, backslashes, newlines)
-            6. Use double quotes for all keys and string values
-        """.trimIndent()
+    override suspend fun sendMessageWithMetrics(aiMessage: AiMessage): AiResponseWithMetrics {
+        val startTime = System.currentTimeMillis()
 
         val request = YandexGptRequest(
             modelUri = "gpt://$folderId/$model",
@@ -50,10 +41,9 @@ class YandexGptClient(
                 temperature = aiMessage.temperature,
                 maxTokens = 10000
             ),
-            messages = listOf(
-                Message(role = "system", text = systemPrompt),
-                Message(role = "user", text = aiMessage.content)
-            )
+            messages = aiMessage.messages.map {
+                Message(role = it.role, text = it.content)
+            }
         )
 
         val response = client.post(endpoint) {
@@ -63,34 +53,19 @@ class YandexGptClient(
             setBody(request)
         }
 
-        val yandexResponse: YandexGptResponse = response.body()
-        return yandexResponse.result.alternatives.firstOrNull()?.message?.text
-            ?: throw IllegalStateException("No response from YandexGPT")
-    }
+        val endTime = System.currentTimeMillis()
 
-    override suspend fun sendMessagePlainText(aiMessage: AiMessage): String {
-        val request = YandexGptRequest(
-            modelUri = "gpt://$folderId/$model",
-            completionOptions = CompletionOptions(
-                stream = false,
-                temperature = aiMessage.temperature,
-                maxTokens = 100
-            ),
-            messages = listOf(
-                Message(role = aiMessage.role, text = aiMessage.content)
-            )
+        val yandexResponse: YandexGptResponse = response.body()
+        val content = yandexResponse.result.alternatives.firstOrNull()?.message?.text
+            ?: throw IllegalStateException("No response from YandexGPT")
+
+        return AiResponseWithMetrics(
+            content = content,
+            durationMs = endTime - startTime,
+            promptTokens = yandexResponse.result.usage.inputTextTokens.toLongOrNull() ?: 0L,
+            completionTokens = yandexResponse.result.usage.completionTokens.toLongOrNull() ?: 0L,
+            totalTokens = yandexResponse.result.usage.totalTokens.toLongOrNull() ?: 0L
         )
-
-        val response = client.post(endpoint) {
-            header("Authorization", "Api-Key $apiKey")
-            header("x-folder-id", folderId)
-            contentType(ContentType.Application.Json)
-            setBody(request)
-        }
-
-        val yandexResponse: YandexGptResponse = response.body()
-        return yandexResponse.result.alternatives.firstOrNull()?.message?.text
-            ?: throw IllegalStateException("No response from YandexGPT")
     }
 
     fun close() {
