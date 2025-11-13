@@ -2,9 +2,12 @@ package com.com
 
 import com.com.ai.AiMessage
 import com.com.ai.ClaudeResponse
+import com.com.ai.ConversationMessage
 import com.com.ai.sendMessagePlainText
+import com.com.bot.ContextManager
 import com.com.bot.ConversationManager
 import com.com.bot.FindTrackInteractor
+import com.com.bot.MetricsManager
 import com.com.di.AppModule
 import com.github.kotlintelegrambot.bot
 import com.github.kotlintelegrambot.dispatch
@@ -15,8 +18,11 @@ import com.github.kotlintelegrambot.entities.ChatId
 import com.github.kotlintelegrambot.entities.ParseMode
 import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.Json
+import org.slf4j.LoggerFactory
 
 const val MAX_TELEGRAM_MESSAGE_LENGTH = 200000
+
+private val logger = LoggerFactory.getLogger("TelegramBotApplication")
 
 /**
  * Format comparison percentages for display
@@ -67,8 +73,10 @@ fun main() {
                         /experts - Analyze a question using multiple AI approaches and compare results
                         /temperature - Compare answers across different temperature settings (0, 0.4, 0.9)
                         /differentModels - Process a question using 3 different HuggingFace models
+                        /context [on|off] - Enable or disable conversation context collection
+                        /metrics [on|off] - Enable or disable performance metrics display
 
-                        Just send me any text message and I'll respond using Claude AI with performance metrics!
+                        Just send me any text message and I'll respond using Claude AI!
 
                         Note: Maximum message length is $MAX_TELEGRAM_MESSAGE_LENGTH characters.
                     """.trimIndent()
@@ -264,6 +272,86 @@ fun main() {
                 }
             }
 
+            command("context") {
+                val chatId = message.chat.id
+                val argument = message.text?.removePrefix("/context")?.trim()?.lowercase()
+
+                when (argument) {
+                    "on" -> {
+                        ContextManager.enableContext(chatId)
+                        bot.sendMessage(
+                            chatId = ChatId.fromId(chatId),
+                            text = "✅ Context collection enabled!\n\nI will now collect conversation context and include it in the system prompt. Every 10 messages, the context will be automatically compressed into a summary."
+                        )
+                    }
+                    "off" -> {
+                        ContextManager.disableContext(chatId)
+                        bot.sendMessage(
+                            chatId = ChatId.fromId(chatId),
+                            text = "✅ Context collection disabled and cleared for this conversation."
+                        )
+                    }
+                    else -> {
+                        val isEnabled = ContextManager.isContextEnabled(chatId)
+                        bot.sendMessage(
+                            chatId = ChatId.fromId(chatId),
+                            text = """
+                                📝 *Context Collection*
+
+                                Status: ${if (isEnabled) "🟢 Enabled" else "🔴 Disabled"}
+
+                                Usage:
+                                /context on - Enable context collection
+                                /context off - Disable and clear context
+
+                                When enabled, I'll collect conversation history and include it as context in the system prompt. Every 10 messages, the context automatically compresses to a summary to keep the conversation efficient.
+                            """.trimIndent(),
+                            parseMode = ParseMode.MARKDOWN
+                        )
+                    }
+                }
+            }
+
+            command("metrics") {
+                val chatId = message.chat.id
+                val argument = message.text?.removePrefix("/metrics")?.trim()?.lowercase()
+
+                when (argument) {
+                    "on" -> {
+                        MetricsManager.enableMetrics(chatId)
+                        bot.sendMessage(
+                            chatId = ChatId.fromId(chatId),
+                            text = "✅ Metrics display enabled!\n\nPerformance metrics will now be shown with AI responses."
+                        )
+                    }
+                    "off" -> {
+                        MetricsManager.disableMetrics(chatId)
+                        bot.sendMessage(
+                            chatId = ChatId.fromId(chatId),
+                            text = "✅ Metrics display disabled!\n\nMetrics will no longer be shown with AI responses."
+                        )
+                    }
+                    else -> {
+                        val isEnabled = MetricsManager.isMetricsEnabled(chatId)
+                        bot.sendMessage(
+                            chatId = ChatId.fromId(chatId),
+                            text = """
+                                📊 *Metrics Display*
+
+                                Status: ${if (isEnabled) "🟢 Enabled" else "🔴 Disabled"}
+
+                                Usage:
+                                /metrics on - Enable metrics display
+                                /metrics off - Disable metrics display
+
+                                When enabled, performance metrics (response time, tokens used, etc.) will be shown with AI responses.
+                            """.trimIndent(),
+                            parseMode = ParseMode.MARKDOWN
+                        )
+                    }
+                }
+            }
+
             message {
                 val text = message.text ?: return@message
                 val chatId = message.chat.id
@@ -296,47 +384,94 @@ fun main() {
                         action = com.github.kotlintelegrambot.entities.ChatAction.TYPING
                     )
 
+                    val aiClient = AppModule.provideAiClient()
+
+                    // Check if context compression is needed
+                    if (ContextManager.shouldCompress(chatId)) {
+                        logger.info("Starting context compression for chat: $chatId")
+                        val compressionStartTime = System.currentTimeMillis()
+
+                        val contextForSummary = ContextManager.getContextForPrompt(chatId) ?: ""
+
+                        val summaryPrompt = """
+                            Summarize the following conversation context concisely in 2-3 paragraphs.
+                            Focus on key topics, important information, and the flow of the conversation:
+
+                            $contextForSummary
+                        """.trimIndent()
+
+                        val summary = aiClient.sendMessagePlainText(
+                            AiMessage("user", summaryPrompt, temperature = 0.3)
+                        )
+
+                        ContextManager.compressContext(chatId, summary)
+
+                        val compressionDuration = System.currentTimeMillis() - compressionStartTime
+                        logger.info("Context compression completed for chat: $chatId | Duration: ${compressionDuration}ms")
+                    }
+
                     // Get AI response with metrics
                     val metricsCollector = AppModule.provideMetricsCollector()
-                    val aiClient = AppModule.provideAiClient()
-                    val responseWithMetrics = aiClient.sendMessageWithMetrics(AiMessage("user", text))
 
-                    // Calculate duration in seconds
-                    val durationSeconds = responseWithMetrics.durationMs / 1000.0
+                    // Prepare messages with context if enabled
+                    val messages = mutableListOf<ConversationMessage>()
 
-                    // Get comparison with historical data
-                    val comparison = metricsCollector.compareToStatistics(responseWithMetrics)
+                    val contextPrompt = ContextManager.getContextForPrompt(chatId)
+                    if (contextPrompt != null) {
+                        messages.add(ConversationMessage("system", contextPrompt))
+                    }
 
-                    // Format response with metrics
-                    val formattedResponse = if (comparison != null) {
-                        val stats = comparison.statistics
-                        """
-                        ${responseWithMetrics.content}
+                    messages.add(ConversationMessage("user", text))
 
-                        ━━━━━━━━━━━━━━━━━━━━
-                        📊 *Current Metrics:*
-                        ⏱️ Time: ${String.format("%.2f", durationSeconds)}s ${formatComparison(comparison.durationVsAverage, comparison.durationVsMedian)}
-                        📥 Prompt tokens: ${responseWithMetrics.promptTokens} ${formatComparison(comparison.promptTokensVsAverage, comparison.promptTokensVsMedian)}
-                        📤 Completion tokens: ${responseWithMetrics.completionTokens} ${formatComparison(comparison.completionTokensVsAverage, comparison.completionTokensVsMedian)}
-                        📊 Total tokens: ${responseWithMetrics.totalTokens} ${formatComparison(comparison.totalTokensVsAverage, comparison.totalTokensVsMedian)}
+                    val responseWithMetrics = aiClient.sendMessageWithMetrics(
+                        AiMessage(messages, temperature = 1.0)
+                    )
 
-                        📈 *Historical Stats (${stats.totalRequests} requests):*
-                        ⏱️ Avg: ${String.format("%.2f", stats.averageDurationMs / 1000.0)}s | Median: ${String.format("%.2f", stats.medianDurationMs / 1000.0)}s
-                        📊 Avg tokens: ${String.format("%.0f", stats.averageTotalTokens)} | Median: ${String.format("%.0f", stats.medianTotalTokens)}
-                        """.trimIndent()
+                    // Track messages in context if enabled
+                    ContextManager.addMessage(chatId, "user", text)
+                    ContextManager.addMessage(chatId, "assistant", responseWithMetrics.content)
+
+                    // Format response with metrics if enabled
+                    val formattedResponse = if (MetricsManager.isMetricsEnabled(chatId)) {
+                        // Calculate duration in seconds
+                        val durationSeconds = responseWithMetrics.durationMs / 1000.0
+
+                        // Get comparison with historical data
+                        val comparison = metricsCollector.compareToStatistics(responseWithMetrics)
+
+                        if (comparison != null) {
+                            val stats = comparison.statistics
+                            """
+                            ${responseWithMetrics.content}
+
+                            ━━━━━━━━━━━━━━━━━━━━
+                            📊 *Current Metrics:*
+                            ⏱️ Time: ${String.format("%.2f", durationSeconds)}s ${formatComparison(comparison.durationVsAverage, comparison.durationVsMedian)}
+                            📥 Prompt tokens: ${responseWithMetrics.promptTokens} ${formatComparison(comparison.promptTokensVsAverage, comparison.promptTokensVsMedian)}
+                            📤 Completion tokens: ${responseWithMetrics.completionTokens} ${formatComparison(comparison.completionTokensVsAverage, comparison.completionTokensVsMedian)}
+                            📊 Total tokens: ${responseWithMetrics.totalTokens} ${formatComparison(comparison.totalTokensVsAverage, comparison.totalTokensVsMedian)}
+
+                            📈 *Historical Stats (${stats.totalRequests} requests):*
+                            ⏱️ Avg: ${String.format("%.2f", stats.averageDurationMs / 1000.0)}s | Median: ${String.format("%.2f", stats.medianDurationMs / 1000.0)}s
+                            📊 Avg tokens: ${String.format("%.0f", stats.averageTotalTokens)} | Median: ${String.format("%.0f", stats.medianTotalTokens)}
+                            """.trimIndent()
+                        } else {
+                            """
+                            ${responseWithMetrics.content}
+
+                            ━━━━━━━━━━━━━━━━━━━━
+                            📊 *Metrics:*
+                            ⏱️ Time: ${String.format("%.2f", durationSeconds)}s
+                            📥 Prompt tokens: ${responseWithMetrics.promptTokens}
+                            📤 Completion tokens: ${responseWithMetrics.completionTokens}
+                            📊 Total tokens: ${responseWithMetrics.totalTokens}
+
+                            ℹ️ First request - no historical data yet
+                            """.trimIndent()
+                        }
                     } else {
-                        """
-                        ${responseWithMetrics.content}
-
-                        ━━━━━━━━━━━━━━━━━━━━
-                        📊 *Metrics:*
-                        ⏱️ Time: ${String.format("%.2f", durationSeconds)}s
-                        📥 Prompt tokens: ${responseWithMetrics.promptTokens}
-                        📤 Completion tokens: ${responseWithMetrics.completionTokens}
-                        📊 Total tokens: ${responseWithMetrics.totalTokens}
-
-                        ℹ️ First request - no historical data yet
-                        """.trimIndent()
+                        // Metrics disabled - just return the content
+                        responseWithMetrics.content
                     }
 
                     // Send response

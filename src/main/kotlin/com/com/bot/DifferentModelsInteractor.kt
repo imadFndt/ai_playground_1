@@ -28,7 +28,9 @@ class DifferentModelsInteractor(
             try {
                 val modelAResponse = modelAClient.sendMessageWithMetrics(AiMessage("user", question, 0.7))
                 sendMessage(bot, chatId, modelAResponse.content)
-                sendMessage(bot, chatId, formatMetrics(modelAResponse.durationMs, modelAResponse.promptTokens, modelAResponse.completionTokens, modelAResponse.totalTokens))
+                if (MetricsManager.isMetricsEnabled(chatId)) {
+                    sendMessage(bot, chatId, formatMetrics(modelAResponse.durationMs, modelAResponse.promptTokens, modelAResponse.completionTokens, modelAResponse.totalTokens))
+                }
             } catch (e: Exception) {
                 sendMessage(bot, chatId, "❌ Error: ${e.message}")
             }
@@ -40,7 +42,9 @@ class DifferentModelsInteractor(
             try {
                 val modelBResponse = modelBClient.sendMessageWithMetrics(AiMessage("user", question, 0.7))
                 sendMessage(bot, chatId, modelBResponse.content)
-                sendMessage(bot, chatId, formatMetrics(modelBResponse.durationMs, modelBResponse.promptTokens, modelBResponse.completionTokens, modelBResponse.totalTokens))
+                if (MetricsManager.isMetricsEnabled(chatId)) {
+                    sendMessage(bot, chatId, formatMetrics(modelBResponse.durationMs, modelBResponse.promptTokens, modelBResponse.completionTokens, modelBResponse.totalTokens))
+                }
             } catch (e: Exception) {
                 sendMessage(bot, chatId, "❌ Error: ${e.message}")
             }
@@ -52,7 +56,9 @@ class DifferentModelsInteractor(
             try {
                 val modelCResponse = modelCClient.sendMessageWithMetrics(AiMessage("user", question, 0.7))
                 sendMessage(bot, chatId, modelCResponse.content)
-                sendMessage(bot, chatId, formatMetrics(modelCResponse.durationMs, modelCResponse.promptTokens, modelCResponse.completionTokens, modelCResponse.totalTokens))
+                if (MetricsManager.isMetricsEnabled(chatId)) {
+                    sendMessage(bot, chatId, formatMetrics(modelCResponse.durationMs, modelCResponse.promptTokens, modelCResponse.completionTokens, modelCResponse.totalTokens))
+                }
             } catch (e: Exception) {
                 sendMessage(bot, chatId, "❌ Error: ${e.message}")
             }
